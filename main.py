@@ -1,0 +1,108 @@
+import csv
+import os
+import re
+
+# IMPORTANTE encabezar el archivo fuente.csv con la siguiente estructura:
+# nombre;apellido;nro_doc;mail 
+
+# Configuración
+ROL = 'productores'
+NOMBRE_INSTITUCION = 'institucion'
+CURSO = 'Curso de Python'
+
+# Ruta del archivo de entrada y salida
+ENTRADA = os.path.abspath('fuente/fuente.csv')
+SALIDA = 'usuarios_moodle.csv'
+
+# Estructura requerida por Moodle
+ENCABEZADO = ["lastname", "firstname", "email", "username", "password", "sysrole1"]
+
+EMAIL_REGEX = re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$')
+
+def limpiar(valor):
+    if not valor or valor.strip().upper() == 'NULL':
+        return ''
+    return valor.strip().title()
+
+def es_correo_valido(correo):
+    return bool(EMAIL_REGEX.match(correo))
+
+def es_doc_valido(doc):
+    return doc.isdigit() and 7 <= len(doc) <= 11
+
+def procesar_archivo(entrada, salida, con_institucion=False, validar_doc=True):
+    total = 0
+    validos = 0
+    invalidos = 0
+    list_errores = []
+
+    print(f"Validación de documento: {'activada' if validar_doc else 'desactivada'}")
+
+    with open(entrada, newline='', encoding='utf-8-sig') as archivo_entrada, \
+         open(salida, mode='w', newline='', encoding='utf-8') as archivo_salida:
+
+        # Detectar delimitador (evita problemas con archivos separados por ',' o ';')
+        sample = archivo_entrada.read(2048)
+        archivo_entrada.seek(0)
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=';,')
+            detected = dialect.delimiter
+        except Exception:
+            detected = ';'  # fallback razonable
+
+        lector = csv.DictReader(archivo_entrada, delimiter=detected)
+
+        # Normalizar nombres de campo: eliminar BOM, espacios y pasar a minúsculas
+        if lector.fieldnames:
+            lector.fieldnames = [fn.strip().lower().lstrip('\ufeff') for fn in lector.fieldnames]
+
+        escritor = csv.writer(archivo_salida)
+
+        escritor.writerow(ENCABEZADO)
+
+        print(f"Usando delimitador '{detected}'. Encabezados: {lector.fieldnames}")
+
+        for fila in lector:
+            total += 1
+
+            apellido = limpiar(fila.get('apellido', ''))
+            nombre = limpiar(fila.get('nombre', ''))
+            correo = fila.get('mail', '').strip().lower()
+            doc = fila.get('nro_doc', '').strip()
+
+            if not es_correo_valido(correo):
+                print(f"[INVALIDO] Correo inválido: {correo} (fila {total})")
+                invalidos += 1
+                list_errores.append(fila)
+                continue
+
+            # Validar documento solo si se activó la opción
+            if validar_doc and not es_doc_valido(doc):
+                print(f"[INVALIDO] Documento inválido: {doc} (fila {total})")
+                invalidos += 1
+                list_errores.append(fila)
+                continue
+
+            if con_institucion:
+                nombre_completo = f"{apellido}, {nombre}"
+                escritor.writerow([nombre_completo, NOMBRE_INSTITUCION, correo, doc, doc, ROL])
+            else:
+                escritor.writerow([apellido, nombre, correo, doc, doc, ROL])
+
+            validos += 1
+
+    print(f"\nProceso completado. Total: {total}, Válidos: {validos}, Inválidos: {invalidos}")
+    print(f"Archivo generado correctamente en: {salida}")
+
+    if invalidos > 0:
+        with open('errores.csv', mode='w', newline='', encoding='utf-8') as archivo_errores:
+            escritor_errores = csv.DictWriter(archivo_errores, fieldnames=lector.fieldnames)
+            escritor_errores.writeheader()
+            for error in list_errores:
+                escritor_errores.writerow(error)
+
+if __name__ == '__main__':
+    if not os.path.exists(ENTRADA):
+        print(f"No se encontró el archivo: {ENTRADA}")
+    else:
+        procesar_archivo(ENTRADA, SALIDA, con_institucion=False, validar_doc=False)
