@@ -1,78 +1,68 @@
-# Script de Generación de Usuarios para Moodle
+# moodle-usuarios-masivos
 
-## Repositorio
+<p>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
+  <img alt="Status" src="https://img.shields.io/badge/status-stable-green">
+</p>
+
+> Genera un CSV listo para importar usuarios en Moodle a partir de una lista simple con nombre, apellido, DNI/CUIL y email. Valida formato, normaliza mayúsculas y reporta errores.
+
+## Features
+
+- Lee un CSV fuente con formato propio (`nombre;apellido;nro_doc;mail`) y produce el CSV con el esquema que Moodle espera.
+- Valida:
+  - Formato del email.
+  - DNI/CUIT/CUIL: solo dígitos, entre 7 y 11 caracteres.
+- Normaliza nombres y apellidos con capitalización consistente.
+- Asigna `username`, `password` inicial y `sysrole1` según config.
+- Loggea en `errores.csv` las filas inválidas (para corregir y re-procesar).
+
+## Requirements
+
+- Python 3.8+
+- Sin dependencias externas (stdlib suficiente).
+
+## Quickstart
+
+### Install
 
 ```bash
-git clone http://192.168.190.95/forgejo/noble/moodle-usuarios-masivos.git
-git pull origin main   # actualizar
+git clone https://github.com/GDelpo/moodle-usuarios-masivos.git
+cd moodle-usuarios-masivos
 ```
 
-> Primera vez en una máquina nueva: ver [SETUP.md](http://192.168.190.95/forgejo/noble/workspace/raw/branch/main/SETUP.md) para configurar proxy y credenciales Git.
+### Prepare fuente
 
----
+Colocar un archivo `fuente/fuente.csv` con este formato (delimitador `;`):
 
-
-Este script permite generar un archivo CSV listo para importar usuarios en Moodle, a partir de un archivo fuente (`fuente.csv`) con datos básicos de personas (nombre, apellido, correo, documento).
-
-El archivo de salida cumple con la estructura requerida por Moodle, incluyendo asignación de rol y contraseña inicial.
-
-## 📄 Estructura Esperada del Archivo Fuente
-
-El archivo de entrada debe ser un archivo CSV delimitado por `;` (punto y coma), con encabezado, y tener la siguiente estructura:
-
+```csv
+nombre;apellido;nro_doc;mail
+Juan;Pérez;20123456789;juan.perez@example.com
+María;Gómez;27987654321;maria.gomez@example.com
 ```
-nombre;apellido;nro\_doc;mail
-Juan;Pérez;20123456789;[juan.perez@email.com](mailto:juan.perez@email.com)
 
-````
+### Run
 
-> El archivo debe estar ubicado en la carpeta `fuente/` con el nombre `fuente.csv`.
+```bash
+python main.py
+```
 
-## ⚙️ ¿Qué hace el script?
+Outputs:
+- `usuarios_moodle.csv` — CSV con formato Moodle (lastname, firstname, email, username, password, sysrole1).
+- `errores.csv` — filas descartadas por validación fallida.
 
-1. Lee el archivo `fuente/fuente.csv`.
-2. Valida:
-   - Que el correo tenga un formato válido.
-   - Que el documento (DNI o CUIT/CUIL) tenga entre 7 y 11 dígitos numéricos.
-3. Limpia los nombres y apellidos (los formatea con mayúscula inicial).
-4. Genera un archivo `usuarios_moodle.csv` con los campos que Moodle requiere:
-   - `lastname`, `firstname`, `email`, `username`, `password`, `sysrole1`
-5. Registra en `errores.csv` las filas inválidas (correos o documentos mal formateados).
+## Formato de salida Moodle
 
-## 🛠️ Requisitos
+| Campo | Valor |
+|-------|-------|
+| `lastname` | Apellido normalizado |
+| `firstname` | Nombre normalizado |
+| `email` | Email validado |
+| `username` | Generado desde `nombre.apellido` |
+| `password` | Password inicial configurable |
+| `sysrole1` | Rol de sistema asignado |
 
-Solo se necesita **Python 3.x**. No se requieren bibliotecas externas.
+## License
 
-## ▶️ Cómo usarlo
-
-1. Colocá el archivo `fuente.csv` dentro del subdirectorio `fuente/`.
-2. Ejecutá el script:
-
- ```bash
-   python main.py
-````
-
-3. El script generará dos archivos en el mismo directorio:
-
-   * `usuarios_moodle.csv`: usuarios válidos listos para importar en Moodle.
-   * `errores.csv`: usuarios descartados por errores en correo o documento.
-
-## 🧩 Personalización
-
-En el archivo `main.py`, podés modificar:
-
-* `ROL`: rol a asignar en Moodle (por ejemplo, `student`, `editingteacher`, etc.).
-* `NOMBRE_INSTITUCION` y `CURSO`: no utilizados por defecto, pero listos para expansión.
-* `con_institucion`: si lo pasás a `True`, agrega el nombre de la institución como primer campo (`lastname`).
-
-## 💡 Notas
-
-* Si tenés un archivo fuente separado por comas en lugar de `;`, deberás ajustar el parámetro `delimiter` en el código.
-* Todos los usuarios tendrán como `username` y `password` su número de documento, sin guiones ni espacios. Sino ajustar el código.
-* El script no maneja la creación de grupos ni categorías, pero es fácil de extender.
-
-## ✏ TODOs
-
-- Crear una interfaz gráfica para facilitar la carga de archivos.
-- Agregar más validaciones (por ejemplo, longitud de nombres y apellidos).
-- Revisar la posibilidad de agregar más campos requeridos por Moodle.
+[MIT](LICENSE) © 2026 Guido Delponte
