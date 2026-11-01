@@ -1,5 +1,6 @@
 usuarios_moodle.csv
-errores.csvenv/
+errores.csv
+env/
 __pycache__/
 *.pyc
 .env
